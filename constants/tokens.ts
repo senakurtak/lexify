@@ -46,8 +46,15 @@ export const Colors = {
 // ---------------------------------------------------------------------------
 
 export const FontFamily = {
-  display: 'SpaceGrotesk',  // Display & Headings
-  body: 'Inter',            // Body & UI
+  // Space Grotesk — Display & Headings
+  displayMedium:   'SpaceGrotesk_500Medium',
+  displaySemibold: 'SpaceGrotesk_600SemiBold',
+  displayBold:     'SpaceGrotesk_700Bold',
+
+  // Inter — Body & UI
+  body:         'Inter_400Regular',
+  bodyMedium:   'Inter_500Medium',
+  bodySemibold: 'Inter_600SemiBold',
 } as const;
 
 export const FontSize = {
@@ -88,20 +95,20 @@ export const LetterSpacing = {
   widest: 1.6,
 } as const;
 
-// Typography presets — name = size key, font family & weight baked in
+// Typography presets — weight is baked into fontFamily, do not set fontWeight separately
 export const TextStyle = {
   // Space Grotesk — Display & Headings
-  '4xl': { fontFamily: FontFamily.display, fontSize: FontSize['4xl'], fontWeight: FontWeight.extrabold },
-  '3xl': { fontFamily: FontFamily.display, fontSize: FontSize['3xl'], fontWeight: FontWeight.bold },
-  '2xl': { fontFamily: FontFamily.display, fontSize: FontSize['2xl'], fontWeight: FontWeight.semibold },
-  xl:    { fontFamily: FontFamily.display, fontSize: FontSize.xl,     fontWeight: FontWeight.semibold },
+  '4xl': { fontFamily: FontFamily.displayBold,     fontSize: FontSize['4xl'] },
+  '3xl': { fontFamily: FontFamily.displayBold,     fontSize: FontSize['3xl'] },
+  '2xl': { fontFamily: FontFamily.displaySemibold, fontSize: FontSize['2xl'] },
+  xl:    { fontFamily: FontFamily.displaySemibold, fontSize: FontSize.xl },
 
   // Inter — Body & UI
-  lg:   { fontFamily: FontFamily.body, fontSize: FontSize.lg,   fontWeight: FontWeight.medium },
-  base: { fontFamily: FontFamily.body, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
-  md:   { fontFamily: FontFamily.body, fontSize: FontSize.md,   fontWeight: FontWeight.regular },
-  sm:   { fontFamily: FontFamily.body, fontSize: FontSize.sm,   fontWeight: FontWeight.medium },
-  xs:   { fontFamily: FontFamily.body, fontSize: FontSize.xs,   fontWeight: FontWeight.medium },
+  lg:   { fontFamily: FontFamily.bodyMedium,   fontSize: FontSize.lg },
+  base: { fontFamily: FontFamily.bodySemibold, fontSize: FontSize.base },
+  md:   { fontFamily: FontFamily.body,         fontSize: FontSize.md },
+  sm:   { fontFamily: FontFamily.bodyMedium,   fontSize: FontSize.sm },
+  xs:   { fontFamily: FontFamily.bodyMedium,   fontSize: FontSize.xs },
 } as const;
 
 // ---------------------------------------------------------------------------
