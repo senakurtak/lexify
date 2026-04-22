@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls /Users/senakurtak/Repo/lexify/*.js /Users/senakurtak/Repo/lexify/*.json /Users/senakurtak/Repo/lexify/*.ts)"
+      "Bash(ls /Users/senakurtak/Repo/lexify/*.js /Users/senakurtak/Repo/lexify/*.json /Users/senakurtak/Repo/lexify/*.ts)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
