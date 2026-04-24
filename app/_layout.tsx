@@ -36,7 +36,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded]);
 
@@ -46,8 +46,8 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }} />
-      <StatusBar style="auto" />
+      <StatusBar style='light' />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0C0C16' } }} />
     </GestureHandlerRootView>
   );
 }
