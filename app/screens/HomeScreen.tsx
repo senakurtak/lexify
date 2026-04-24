@@ -1,11 +1,15 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import BrandVoice from '../../components/BrandVoice';
 import Logo, { LogoDimensions } from '../../components/Logo';
+import Tagline from '../../components/Tagline';
 import { Colors, FontFamily, FontSize, Spacing } from '../../constants/tokens';
+
 import type { RootStackScreenProps } from '../../types/navigation';
 
 export default function HomeScreen(_props: RootStackScreenProps<'Home'>) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+
       <Text style={styles.sectionLabel}>ICON SIZES</Text>
       <View style={styles.row}>
         {(['sm', 'md', 'lg'] as const).map((size) => (
@@ -32,6 +36,13 @@ export default function HomeScreen(_props: RootStackScreenProps<'Home'>) {
         <Logo variant="icon" size="md" />
         <Logo variant="wordmark" size="md" />
       </View>
+
+      <Text style={styles.sectionLabel}>TAGLINE</Text>
+      <Tagline />
+
+      <Text style={styles.sectionLabel}>BRAND VOICE</Text>
+      <BrandVoice />
+
     </ScrollView>
   );
 }
@@ -44,6 +55,7 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing[6],
     gap: Spacing[4],
+    paddingBottom: Spacing[12],
   },
   sectionLabel: {
     fontFamily: FontFamily.bodySemibold,
@@ -79,4 +91,5 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textMuted,
   },
+
 });
