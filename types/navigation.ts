@@ -4,7 +4,7 @@ export type RootStackParamList = {
   Home: undefined;
   HowToPlay: undefined;
   Game: undefined;
-  Result: undefined;
+  Result: { score: string; history: string };
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
