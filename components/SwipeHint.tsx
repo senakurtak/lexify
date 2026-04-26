@@ -16,9 +16,8 @@ const config = {
     direction: 'RIGHT →',
     icon: 'check' as const,
     color: Colors.success,
-    background: 'rgba(52, 211, 153, 0.12)',
+    background: 'rgba(52, 211, 153, 0.20)',
     border: 'rgba(52, 211, 153, 0)',
-    iconBackground: 'rgba(52, 211, 153, 0.18)',
     iconBorder: 'rgba(52, 211, 153, 0)',
   },
   wrong: {
@@ -27,9 +26,8 @@ const config = {
     direction: '← LEFT',
     icon: 'x' as const,
     color: Colors.error,
-    background: 'rgba(248, 113, 113, 0.12)',
+    background: 'rgba(248, 113, 113, 0.20)',
     border: 'rgba(248, 113, 113, 0)',
-    iconBackground: 'rgba(248, 113, 113, 0.18)',
     iconBorder: 'rgba(248, 113, 113, 0)',
   },
 } as const;
@@ -39,7 +37,7 @@ export default function SwipeHint({ variant, style }: SwipeHintProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: background, borderColor: border }, style]}>
-      <View style={[styles.iconWrapper, { backgroundColor: iconBackground, borderColor: iconBorder }]}>
+      <View style={[styles.iconWrapper, { borderColor: iconBorder }]}>
         <Feather name={icon} size={20} color={color} />
       </View>
       <View style={styles.content}>
@@ -56,7 +54,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: BorderRadius.xl,
-    borderWidth: 1,
+    borderWidth: 0,
     paddingHorizontal: Spacing[4],
     paddingVertical: Spacing[4],
     gap: Spacing[3],

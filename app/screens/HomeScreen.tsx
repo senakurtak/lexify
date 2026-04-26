@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Button from '../../components/Button';
 import Logo from '../../components/Logo';
@@ -12,7 +13,6 @@ import {
   Spacing,
 } from '../../constants/tokens';
 import { useScores } from '../../src/hooks/useScores';
-import type { RootStackScreenProps } from '../../types/navigation';
 
 const MAX_SCORE = 200;
 
@@ -20,7 +20,8 @@ function formatScore(score: number, hasPlayed: boolean): string {
   return hasPlayed ? `${score}/${MAX_SCORE}` : '—';
 }
 
-export default function HomeScreen({ navigation }: RootStackScreenProps<'Home'>) {
+export default function HomeScreen() {
+  const router = useRouter();
   const { scores } = useScores();
   const hasPlayed = scores.totalRounds > 0;
 
@@ -56,10 +57,10 @@ export default function HomeScreen({ navigation }: RootStackScreenProps<'Home'>)
       </View>
 
       <View style={styles.actions}>
-        <Button fullWidth onPress={() => navigation.navigate('Game')}>
+        <Button fullWidth onPress={() => router.push('/game')}>
           Start Round
         </Button>
-        <Pressable onPress={() => navigation.navigate('HowToPlay')} style={styles.howToPlay}>
+        <Pressable onPress={() => router.push('/how-to-play')} style={styles.howToPlay}>
           <Text style={styles.howToPlayText}>How to Play</Text>
         </Pressable>
       </View>
