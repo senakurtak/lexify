@@ -4,13 +4,14 @@ import { BorderRadius, Colors, FontFamily, FontSize, LetterSpacing, Spacing } fr
 interface StatCardProps {
   label: string;
   value: string | number;
+  valueColor?: string;
 }
 
-export default function StatCard({ label, value }: StatCardProps) {
+export default function StatCard({ label, value, valueColor }: StatCardProps) {
   return (
     <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+      <Text style={[styles.value, valueColor ? { color: valueColor } : undefined]}>{value}</Text>
     </View>
   );
 }
