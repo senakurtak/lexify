@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Button from '../../components/Button';
@@ -16,100 +17,63 @@ import {
 } from '../../constants/tokens';
 
 const TOTAL = 20;
-const RING_SIZE = 130;
-const RING_STROKE = 12;
-const RING_HALF = RING_SIZE / 2;
 const BEST_SCORE_KEY = '@lexify/bestScore';
 
 // ---------------------------------------------------------------------------
-// Circular progress ring — two-semicircle rotation technique
+// Donut ring — SVG stroke-dasharray technique
 // ---------------------------------------------------------------------------
+
+const RING_SIZE = 140;
+const RING_STROKE = 11;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const RING_CENTER = RING_SIZE / 2;
 
 function ProgressRing({ fill, children }: { fill: number; children?: React.ReactNode }) {
   const clampedFill = Math.max(0, Math.min(1, fill));
-  // Right semicircle sweeps from -180deg (0%) to 0deg (50%)
-  const rightDeg = -180 + Math.min(clampedFill, 0.5) * 360;
-  // Left semicircle sweeps from 180deg (50%) to 0deg (100%)
-  const leftDeg = clampedFill > 0.5 ? 180 - (clampedFill - 0.5) * 360 : 180;
+  const dashOffset = RING_CIRCUMFERENCE * (1 - clampedFill);
+
   return (
-    <View style={ring.container}>
-      <View style={ring.track} />
-
-      <View style={ring.clipRight}>
-        <View style={[ring.halfRight, { transform: [{ rotate: `${rightDeg}deg` }] }]} />
-      </View>
-
-      <View style={ring.clipLeft}>
-        <View style={[ring.halfLeft, { transform: [{ rotate: `${leftDeg}deg` }] }]} />
-      </View>
-
-      {/* Center mask creates the hollow ring — explicit top/left required; absolute ignores flex center */}
-      <View style={ring.mask} />
-
+    <View style={ringStyles.wrapper}>
+      <Svg width={RING_SIZE} height={RING_SIZE} style={ringStyles.svg}>
+        {/* Track */}
+        <Circle
+          cx={RING_CENTER}
+          cy={RING_CENTER}
+          r={RING_RADIUS}
+          stroke={Colors.surfaceHigh}
+          strokeWidth={RING_STROKE}
+          fill="none"
+        />
+        {/* Progress arc — starts at 12 o'clock, fills clockwise */}
+        <Circle
+          cx={RING_CENTER}
+          cy={RING_CENTER}
+          r={RING_RADIUS}
+          stroke={Colors.success}
+          strokeWidth={RING_STROKE}
+          fill="none"
+          strokeDasharray={RING_CIRCUMFERENCE}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          rotation={-90}
+          origin={`${RING_CENTER}, ${RING_CENTER}`}
+        />
+      </Svg>
       {children}
     </View>
   );
 }
 
-const ring = StyleSheet.create({
-  container: {
+const ringStyles = StyleSheet.create({
+  wrapper: {
     width: RING_SIZE,
     height: RING_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  track: {
+  svg: {
     position: 'absolute',
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_HALF,
-    borderWidth: RING_STROKE,
-    borderColor: Colors.surfaceHigh,
-  },
-  clipRight: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: RING_HALF,
-    height: RING_SIZE,
-    overflow: 'hidden',
-  },
-  halfRight: {
-    position: 'absolute',
-    top: 0,
-    left: -RING_HALF,
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderTopRightRadius: RING_HALF,
-    borderBottomRightRadius: RING_HALF,
-    backgroundColor: Colors.success,
-  },
-  clipLeft: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: RING_HALF,
-    height: RING_SIZE,
-    overflow: 'hidden',
-  },
-  halfLeft: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderTopLeftRadius: RING_HALF,
-    borderBottomLeftRadius: RING_HALF,
-    backgroundColor: Colors.success,
-  },
-  mask: {
-    position: 'absolute',
-    top: RING_STROKE,
-    left: RING_STROKE,
-    width: RING_SIZE - RING_STROKE * 2,
-    height: RING_SIZE - RING_STROKE * 2,
-    borderRadius: (RING_SIZE - RING_STROKE * 2) / 2,
-    backgroundColor: Colors.bg,
   },
 });
 
@@ -145,8 +109,6 @@ export default function ResultScreen() {
   const accuracy = history.length ? correctCount / history.length : 0;
   const { message, color: messageColor } = getPerformance(accuracy);
 
-  // bestCorrect: from saved scores (updates after saveRoundResult resolves)
-  // Fallback to correctCount until scores loads to avoid showing 0
   const bestCorrect = scores.bestScore > 0
     ? Math.round(Math.max(scores.bestScore, score) / 10)
     : correctCount;
@@ -170,7 +132,7 @@ export default function ResultScreen() {
       <View style={styles.content}>
         <Text style={styles.roundLabel}>Round Complete</Text>
 
-        {/* Ring with score inside */}
+        {/* Donut ring with score inside */}
         <ProgressRing fill={accuracy}>
           <View style={styles.ringInner}>
             <Text style={styles.ringScore}>{correctCount}</Text>
@@ -232,7 +194,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   ringInner: {
-    position: 'absolute',
     alignItems: 'center',
   },
   ringScore: {
