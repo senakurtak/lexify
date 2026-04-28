@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, RadialGradient, Stop, Rect } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Button from '../../components/Button';
 import StatCard from '../../components/StatCard';
@@ -14,7 +16,87 @@ import {
   Spacing,
 } from '../../constants/tokens';
 
-const MAX_SCORE = 200;
+const TOTAL = 20;
+const BEST_SCORE_KEY = '@lexify/bestScore';
+
+// ---------------------------------------------------------------------------
+// Donut ring — SVG stroke-dasharray technique
+// ---------------------------------------------------------------------------
+
+const RING_SIZE = 140;
+const RING_STROKE = 11;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const RING_CENTER = RING_SIZE / 2;
+
+function ProgressRing({ fill, children }: { fill: number; children?: React.ReactNode }) {
+  const clampedFill = Math.max(0, Math.min(1, fill));
+  const dashOffset = RING_CIRCUMFERENCE * (1 - clampedFill);
+
+  return (
+    <View style={ringStyles.wrapper}>
+      <Svg width={RING_SIZE} height={RING_SIZE} style={ringStyles.svg}>
+        {/* Track */}
+        <Circle
+          cx={RING_CENTER}
+          cy={RING_CENTER}
+          r={RING_RADIUS}
+          stroke={Colors.surfaceHigh}
+          strokeWidth={RING_STROKE}
+          fill="none"
+        />
+        <Defs>
+          <LinearGradient id="ringGradient" x1="0" y1="0" x2={RING_SIZE} y2="0" gradientUnits="userSpaceOnUse">
+            <Stop offset="0%" stopColor={Colors.primaryLight} />
+            <Stop offset="100%" stopColor={Colors.success} />
+          </LinearGradient>
+        </Defs>
+        {/* Progress arc — starts at 12 o'clock, fills clockwise */}
+        <Circle
+          cx={RING_CENTER}
+          cy={RING_CENTER}
+          r={RING_RADIUS}
+          stroke="url(#ringGradient)"
+          strokeWidth={RING_STROKE}
+          fill="none"
+          strokeDasharray={RING_CIRCUMFERENCE}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          rotation={-90}
+          origin={`${RING_CENTER}, ${RING_CENTER}`}
+        />
+      </Svg>
+      {children}
+    </View>
+  );
+}
+
+const ringStyles = StyleSheet.create({
+  wrapper: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  svg: {
+    position: 'absolute',
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Performance message
+// ---------------------------------------------------------------------------
+
+function getPerformance(accuracy: number): { message: string; color: string } {
+  if (accuracy >= 0.9) return { message: 'Outstanding!', color: Colors.primaryLight };
+  if (accuracy >= 0.75) return { message: 'Great job!', color: Colors.success };
+  if (accuracy >= 0.5) return { message: 'Good effort!', color: Colors.textPrimary };
+  return { message: 'Keep going!', color: Colors.textSecondary };
+}
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 
 export default function ResultScreen() {
   const router = useRouter();
@@ -22,79 +104,85 @@ export default function ResultScreen() {
     score: string;
     history: string;
   }>();
-  const { saveRoundResult } = useScores();
+  const { scores, saveRoundResult } = useScores();
   const savedRef = useRef(false);
+  const [isNewBest, setIsNewBest] = useState(false);
 
   const score = Number(scoreParam ?? 0);
   const history: AnswerRecord[] = historyParam ? JSON.parse(historyParam as string) : [];
   const correctCount = history.filter((r) => r.answeredCorrectly).length;
+  const wrongCount = history.length - correctCount;
+  const accuracy = history.length ? correctCount / history.length : 0;
+  const { message, color: messageColor } = getPerformance(accuracy);
+
+  const bestCorrect = scores.bestScore > 0
+    ? Math.round(Math.max(scores.bestScore, score) / 10)
+    : correctCount;
 
   useEffect(() => {
     if (savedRef.current) return;
     savedRef.current = true;
-    saveRoundResult(score, correctCount);
+
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(BEST_SCORE_KEY);
+        const prevBest = Number(stored ?? 0);
+        if (score > prevBest) setIsNewBest(true);
+      } catch {}
+      saveRoundResult(score, correctCount);
+    })();
   }, []);
 
   return (
     <View style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.hero}>
-          <Text style={styles.heroLabel}>Round Complete</Text>
-          <Text style={styles.heroScore}>{score}</Text>
-          <Text style={styles.heroMax}>/ {MAX_SCORE}</Text>
-        </View>
+      <Svg style={styles.bgGlow} width="320" height="320" viewBox="0 0 320 320">
+        <Defs>
+          <RadialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#7C6FFC" stopOpacity="0.12" />
+            <Stop offset="100%" stopColor="#7C6FFC" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width="320" height="320" fill="url(#bgGlow)" />
+      </Svg>
+      <View style={styles.content}>
+        <Text style={styles.roundLabel}>Round Complete</Text>
 
-        <View style={styles.stats}>
-          <StatCard label="Correct" value={`${correctCount} / ${history.length}`} />
-          <StatCard
-            label="Accuracy"
-            value={
-              history.length ? `${Math.round((correctCount / history.length) * 100)}%` : '—'
-            }
-          />
-        </View>
+        {/* Donut ring with score inside */}
+        <ProgressRing fill={accuracy}>
+          <View style={styles.ringInner}>
+            <Text style={styles.ringScore}>{correctCount}</Text>
+            <Text style={styles.ringTotal}>/ {TOTAL}</Text>
+          </View>
+        </ProgressRing>
 
-        {history.length > 0 && (
-          <View style={styles.review}>
-            <Text style={styles.reviewTitle}>Review</Text>
-            {history.map((record, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.reviewItem,
-                  record.answeredCorrectly ? styles.reviewItemCorrect : styles.reviewItemWrong,
-                ]}
-              >
-                <View style={styles.reviewItemRow}>
-                  <Text style={styles.reviewWord}>{record.word.word.toUpperCase()}</Text>
-                  <Text
-                    style={[
-                      styles.reviewResult,
-                      { color: record.answeredCorrectly ? Colors.success : Colors.error },
-                    ]}
-                  >
-                    {record.answeredCorrectly ? 'Correct' : 'Wrong'}
-                  </Text>
-                </View>
-                <Text style={styles.reviewDef}>{record.displayDefinition}</Text>
-                {!record.isMatch && (
-                  <Text style={styles.reviewMismatch}>Definition did not match</Text>
-                )}
-              </View>
-            ))}
+        {/* Performance message */}
+        <Text style={[styles.message, { color: messageColor }]}>{message}</Text>
+        <Text style={styles.accuracyText}>
+          {Math.round(accuracy * 100)}% accuracy · {correctCount} correct of {TOTAL}
+        </Text>
+
+        {/* New best badge */}
+        {isNewBest && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeStar}>★</Text>
+            <Text style={styles.badgeText}>NEW BEST SCORE!</Text>
           </View>
         )}
-      </ScrollView>
+
+        {/* Stat cards */}
+        <View style={styles.stats}>
+          <StatCard label="Correct" value={correctCount} valueColor={Colors.success} />
+          <StatCard label="Wrong" value={wrongCount} valueColor={Colors.error} />
+          <StatCard label="Best" value={bestCorrect} />
+        </View>
+      </View>
 
       <View style={styles.footer}>
         <Button fullWidth size="lg" onPress={() => router.replace('/game')}>
           Play Again
         </Button>
-        <Button fullWidth size="lg" variant="ghost" onPress={() => router.replace('/')}>
-          Home
+        <Button variant="ghost" size="md" fullWidth onPress={() => router.replace('/')}>
+          Back to Home
         </Button>
       </View>
     </View>
@@ -105,96 +193,87 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.bg,
+    overflow: 'hidden',
   },
-  scroll: {
-    paddingHorizontal: Spacing[5],
-    paddingTop: Spacing[16],
-    paddingBottom: Spacing[6],
-    gap: Spacing[5],
+  bgGlow: {
+    position: 'absolute',
+    bottom: -60,
+    left: '50%' as any,
+    marginLeft: -160,
   },
-  hero: {
+  content: {
+    flex: 1,
     alignItems: 'center',
-    gap: Spacing[1],
+    justifyContent: 'center',
+    paddingHorizontal: Spacing[5],
+    gap: Spacing[4],
   },
-  heroLabel: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
+  roundLabel: {
+    fontFamily: FontFamily.bodySemibold,
+    fontSize: 11,
+    color: Colors.textMuted,
     letterSpacing: LetterSpacing.wide,
     textTransform: 'uppercase',
   },
-  heroScore: {
+  ringInner: {
+    alignItems: 'center',
+  },
+  ringScore: {
     fontFamily: FontFamily.displayBold,
-    fontSize: 72,
+    fontSize: FontSize['4xl'],
     color: Colors.textPrimary,
     letterSpacing: LetterSpacing.tight,
-    lineHeight: 80,
+    lineHeight: FontSize['4xl'] * 1.1,
   },
-  heroMax: {
+  ringTotal: {
     fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.sm,
     color: Colors.textSecondary,
+  },
+  message: {
+    fontFamily: FontFamily.displayBold,
+    fontSize: FontSize['3xl'],
+    letterSpacing: LetterSpacing.tight,
+    marginTop: Spacing[1],
+  },
+  accuracyText: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: -Spacing[2],
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[1.5],
+    backgroundColor: Colors.primaryDim,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing[4],
+    paddingVertical: Spacing[1.5],
+    borderWidth: 1,
+    borderColor: Colors.primaryGlow,
+  },
+  badgeStar: {
+    fontSize: FontSize.sm,
+    color: Colors.primaryLight,
+  },
+  badgeText: {
+    fontFamily: FontFamily.bodySemibold,
+    fontSize: FontSize.xs,
+    color: Colors.primaryLight,
+    letterSpacing: LetterSpacing.widest,
   },
   stats: {
     flexDirection: 'row',
     gap: Spacing[3],
-  },
-  review: {
-    gap: Spacing[3],
-  },
-  reviewTitle: {
-    fontFamily: FontFamily.displaySemibold,
-    fontSize: FontSize['2xl'],
-    color: Colors.textPrimary,
-    letterSpacing: LetterSpacing.tight,
-  },
-  reviewItem: {
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[4],
-    gap: Spacing[1],
-  },
-  reviewItemCorrect: {
-    backgroundColor: Colors.successDim,
-    borderColor: 'rgba(52, 211, 153, 0.25)',
-  },
-  reviewItemWrong: {
-    backgroundColor: Colors.errorDim,
-    borderColor: 'rgba(248, 113, 113, 0.25)',
-  },
-  reviewItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  reviewWord: {
-    fontFamily: FontFamily.displayBold,
-    fontSize: FontSize.base,
-    color: Colors.textPrimary,
-    letterSpacing: LetterSpacing.wide,
-  },
-  reviewResult: {
-    fontFamily: FontFamily.bodySemibold,
-    fontSize: FontSize.sm,
-  },
-  reviewDef: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    lineHeight: FontSize.sm * 1.5,
-  },
-  reviewMismatch: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.xs,
-    color: Colors.error,
-    marginTop: Spacing[1],
+    width: '100%',
+    marginTop: Spacing[2],
   },
   footer: {
     paddingHorizontal: Spacing[5],
     paddingBottom: Spacing[10],
     paddingTop: Spacing[4],
-    backgroundColor: Colors.bg,
     gap: Spacing[3],
+    alignItems: 'center',
   },
 });
