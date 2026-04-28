@@ -1,10 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import ProgressBar from '../../components/ProgressBar';
 import TimerBar from '../../components/TimerBar';
-import SwipeCard from '../../components/SwipeCard';
-import SwipeHint from '../../components/SwipeHint';
+import SwipeCard, { SWIPE_THRESHOLD } from '../../components/SwipeCard';
 import { useGame } from '../../src/hooks/useGame';
 import {
   Colors,
@@ -21,9 +26,11 @@ export default function GameScreen() {
   const { currentQuestion, score, questionIndex, isComplete, answerHistory, submitAnswer } =
     useGame();
   const hasAnsweredRef = useRef(false);
+  const translateX = useSharedValue(0);
 
   useEffect(() => {
     hasAnsweredRef.current = false;
+    translateX.value = 0;
   }, [questionIndex]);
 
   useEffect(() => {
@@ -37,6 +44,14 @@ export default function GameScreen() {
       });
     }
   }, [isComplete]);
+
+  const correctGlowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP),
+  }));
+
+  const wrongGlowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [0, -SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP),
+  }));
 
   if (!currentQuestion) return null;
 
@@ -68,11 +83,20 @@ export default function GameScreen() {
       </View>
 
       <View style={styles.cardArea}>
+        <Animated.View
+          style={[styles.glow, { backgroundColor: Colors.success }, correctGlowStyle]}
+          pointerEvents="none"
+        />
+        <Animated.View
+          style={[styles.glow, { backgroundColor: Colors.error }, wrongGlowStyle]}
+          pointerEvents="none"
+        />
         <SwipeCard
           key={questionIndex}
           word={currentQuestion.word.word}
           partOfSpeech={currentQuestion.word.partOfSpeech}
           definition={currentQuestion.displayDefinition}
+          translateX={translateX}
           onSwipe={handleSwipe}
         />
       </View>
@@ -118,5 +142,8 @@ const styles = StyleSheet.create({
   cardArea: {
     flex: 1,
     justifyContent: 'center',
+  },
+  glow: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
