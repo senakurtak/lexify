@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, RadialGradient, Stop, Rect } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Button from '../../components/Button';
@@ -45,12 +45,18 @@ function ProgressRing({ fill, children }: { fill: number; children?: React.React
           strokeWidth={RING_STROKE}
           fill="none"
         />
+        <Defs>
+          <LinearGradient id="ringGradient" x1="0" y1="0" x2={RING_SIZE} y2="0" gradientUnits="userSpaceOnUse">
+            <Stop offset="0%" stopColor={Colors.primaryLight} />
+            <Stop offset="100%" stopColor={Colors.success} />
+          </LinearGradient>
+        </Defs>
         {/* Progress arc — starts at 12 o'clock, fills clockwise */}
         <Circle
           cx={RING_CENTER}
           cy={RING_CENTER}
           r={RING_RADIUS}
-          stroke={Colors.success}
+          stroke="url(#ringGradient)"
           strokeWidth={RING_STROKE}
           fill="none"
           strokeDasharray={RING_CIRCUMFERENCE}
@@ -82,10 +88,10 @@ const ringStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 
 function getPerformance(accuracy: number): { message: string; color: string } {
-  if (accuracy >= 0.95) return { message: 'Outstanding!', color: Colors.primary };
-  if (accuracy >= 0.80) return { message: 'Great job!', color: Colors.success };
-  if (accuracy >= 0.50) return { message: 'Good effort!', color: Colors.textPrimary };
-  return { message: 'Keep going!', color: Colors.textPrimary };
+  if (accuracy >= 0.9) return { message: 'Outstanding!', color: Colors.primaryLight };
+  if (accuracy >= 0.75) return { message: 'Great job!', color: Colors.success };
+  if (accuracy >= 0.5) return { message: 'Good effort!', color: Colors.textPrimary };
+  return { message: 'Keep going!', color: Colors.textSecondary };
 }
 
 // ---------------------------------------------------------------------------
@@ -129,6 +135,15 @@ export default function ResultScreen() {
 
   return (
     <View style={styles.screen}>
+      <Svg style={styles.bgGlow} width="320" height="320" viewBox="0 0 320 320">
+        <Defs>
+          <RadialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#7C6FFC" stopOpacity="0.12" />
+            <Stop offset="100%" stopColor="#7C6FFC" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width="320" height="320" fill="url(#bgGlow)" />
+      </Svg>
       <View style={styles.content}>
         <Text style={styles.roundLabel}>Round Complete</Text>
 
@@ -166,9 +181,9 @@ export default function ResultScreen() {
         <Button fullWidth size="lg" onPress={() => router.replace('/game')}>
           Play Again
         </Button>
-        <Pressable onPress={() => router.replace('/')} style={styles.homeButton}>
-          <Text style={styles.homeButtonText}>Back to Home</Text>
-        </Pressable>
+        <Button variant="ghost" size="md" fullWidth onPress={() => router.replace('/')}>
+          Back to Home
+        </Button>
       </View>
     </View>
   );
@@ -178,6 +193,13 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.bg,
+    overflow: 'hidden',
+  },
+  bgGlow: {
+    position: 'absolute',
+    bottom: -60,
+    left: '50%' as any,
+    marginLeft: -160,
   },
   content: {
     flex: 1,
@@ -187,9 +209,9 @@ const styles = StyleSheet.create({
     gap: Spacing[4],
   },
   roundLabel: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
+    fontFamily: FontFamily.bodySemibold,
+    fontSize: 11,
+    color: Colors.textMuted,
     letterSpacing: LetterSpacing.wide,
     textTransform: 'uppercase',
   },
@@ -253,13 +275,5 @@ const styles = StyleSheet.create({
     paddingTop: Spacing[4],
     gap: Spacing[3],
     alignItems: 'center',
-  },
-  homeButton: {
-    paddingVertical: Spacing[2],
-  },
-  homeButtonText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.base,
-    color: Colors.textSecondary,
   },
 });
