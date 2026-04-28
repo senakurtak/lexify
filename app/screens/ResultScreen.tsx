@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, RadialGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Button from '../../components/Button';
+import CircularProgress from '../../components/CircularProgress';
 import StatCard from '../../components/StatCard';
 import { useScores } from '../../src/hooks/useScores';
 import type { AnswerRecord } from '../../src/hooks/useGame';
@@ -18,70 +19,8 @@ import {
 
 const TOTAL = 20;
 const BEST_SCORE_KEY = '@lexify/bestScore';
-
-// ---------------------------------------------------------------------------
-// Donut ring — SVG stroke-dasharray technique
-// ---------------------------------------------------------------------------
-
 const RING_SIZE = 140;
 const RING_STROKE = 11;
-const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-const RING_CENTER = RING_SIZE / 2;
-
-function ProgressRing({ fill, children }: { fill: number; children?: React.ReactNode }) {
-  const clampedFill = Math.max(0, Math.min(1, fill));
-  const dashOffset = RING_CIRCUMFERENCE * (1 - clampedFill);
-
-  return (
-    <View style={ringStyles.wrapper}>
-      <Svg width={RING_SIZE} height={RING_SIZE} style={ringStyles.svg}>
-        {/* Track */}
-        <Circle
-          cx={RING_CENTER}
-          cy={RING_CENTER}
-          r={RING_RADIUS}
-          stroke={Colors.surfaceHigh}
-          strokeWidth={RING_STROKE}
-          fill="none"
-        />
-        <Defs>
-          <LinearGradient id="ringGradient" x1="0" y1="0" x2={RING_SIZE} y2="0" gradientUnits="userSpaceOnUse">
-            <Stop offset="0%" stopColor={Colors.primaryLight} />
-            <Stop offset="100%" stopColor={Colors.success} />
-          </LinearGradient>
-        </Defs>
-        {/* Progress arc — starts at 12 o'clock, fills clockwise */}
-        <Circle
-          cx={RING_CENTER}
-          cy={RING_CENTER}
-          r={RING_RADIUS}
-          stroke="url(#ringGradient)"
-          strokeWidth={RING_STROKE}
-          fill="none"
-          strokeDasharray={RING_CIRCUMFERENCE}
-          strokeDashoffset={dashOffset}
-          strokeLinecap="round"
-          rotation={-90}
-          origin={`${RING_CENTER}, ${RING_CENTER}`}
-        />
-      </Svg>
-      {children}
-    </View>
-  );
-}
-
-const ringStyles = StyleSheet.create({
-  wrapper: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  svg: {
-    position: 'absolute',
-  },
-});
 
 // ---------------------------------------------------------------------------
 // Performance message
@@ -147,13 +86,16 @@ export default function ResultScreen() {
       <View style={styles.content}>
         <Text style={styles.roundLabel}>Round Complete</Text>
 
-        {/* Donut ring with score inside */}
-        <ProgressRing fill={accuracy}>
+        <CircularProgress
+          percentage={Math.round(accuracy * 100)}
+          size={RING_SIZE}
+          strokeWidth={RING_STROKE}
+        >
           <View style={styles.ringInner}>
             <Text style={styles.ringScore}>{correctCount}</Text>
             <Text style={styles.ringTotal}>/ {TOTAL}</Text>
           </View>
-        </ProgressRing>
+        </CircularProgress>
 
         {/* Performance message */}
         <Text style={[styles.message, { color: messageColor }]}>{message}</Text>
