@@ -30,11 +30,12 @@ interface SwipeCardProps {
   word: string;
   partOfSpeech: PartOfSpeech;
   definition: string;
+  isMatch: boolean;
   translateX: SharedValue<number>;
   onSwipe?: (direction: 'correct' | 'wrong') => void;
 }
 
-export default function SwipeCard({ word, partOfSpeech, definition, translateX, onSwipe }: SwipeCardProps) {
+export default function SwipeCard({ word, partOfSpeech, definition, isMatch, translateX, onSwipe }: SwipeCardProps) {
   const translateY = useSharedValue(0);
 
   function handleSwipe(direction: 'correct' | 'wrong') {
@@ -78,20 +79,24 @@ export default function SwipeCard({ word, partOfSpeech, definition, translateX, 
   }));
 
   const cardBorderStyle = useAnimatedStyle(() => {
+    // normalizedDrag > 0 means user is swiping in the correct-answer direction
+    const normalizedDrag = (isMatch ? 1 : -1) * translateX.value;
     const borderColor =
-      translateX.value >= 0
-        ? interpolateColor(translateX.value, [0, SWIPE_THRESHOLD], [Colors.border, Colors.success])
-        : interpolateColor(-translateX.value, [0, SWIPE_THRESHOLD], [Colors.border, Colors.error]);
+      normalizedDrag >= 0
+        ? interpolateColor(normalizedDrag, [0, SWIPE_THRESHOLD], [Colors.border, Colors.success])
+        : interpolateColor(-normalizedDrag, [0, SWIPE_THRESHOLD], [Colors.border, Colors.error]);
     return { borderColor, borderWidth: 1 };
   });
 
-  const correctBadgeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP),
-  }));
+  const correctBadgeStyle = useAnimatedStyle(() => {
+    const correctDrag = (isMatch ? 1 : -1) * translateX.value;
+    return { opacity: interpolate(correctDrag, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP) };
+  });
 
-  const wrongBadgeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, -SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP),
-  }));
+  const wrongBadgeStyle = useAnimatedStyle(() => {
+    const wrongDrag = (isMatch ? -1 : 1) * translateX.value;
+    return { opacity: interpolate(wrongDrag, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP) };
+  });
 
   return (
     <GestureDetector gesture={pan}>
