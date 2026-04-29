@@ -2,12 +2,14 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
   interpolate,
+  interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { StyleSheet, Text, View } from 'react-native';
 import Badge from './Badge';
 import {
@@ -21,32 +23,28 @@ import {
 } from '../constants/tokens';
 import type { PartOfSpeech } from '../src/data/words';
 
-const SWIPE_THRESHOLD = 120;
-const DRAG_CLAMP = 80;
+export const SWIPE_THRESHOLD = 120;
 const ROTATION_FACTOR = 15;
 
 interface SwipeCardProps {
   word: string;
   partOfSpeech: PartOfSpeech;
   definition: string;
+  isMatch: boolean;
+  translateX: SharedValue<number>;
   onSwipe?: (direction: 'correct' | 'wrong') => void;
 }
 
-export default function SwipeCard({ word, partOfSpeech, definition, onSwipe }: SwipeCardProps) {
-  const translateX = useSharedValue(0);
+export default function SwipeCard({ word, partOfSpeech, definition, isMatch, translateX, onSwipe }: SwipeCardProps) {
   const translateY = useSharedValue(0);
-
-  function resetCard() {
-    translateX.value = withSpring(0);
-    translateY.value = withSpring(0);
-  }
 
   function handleSwipe(direction: 'correct' | 'wrong') {
     onSwipe?.(direction);
-    resetCard();
   }
 
   const pan = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-5, 5])
     .onUpdate((e) => {
       translateX.value = e.translationX;
       translateY.value = e.translationY;
@@ -80,18 +78,30 @@ export default function SwipeCard({ word, partOfSpeech, definition, onSwipe }: S
     ],
   }));
 
-  const correctBadgeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP),
-  }));
+  const cardBorderStyle = useAnimatedStyle(() => {
+    // normalizedDrag > 0 means user is swiping in the correct-answer direction
+    const normalizedDrag = (isMatch ? 1 : -1) * translateX.value;
+    const borderColor =
+      normalizedDrag >= 0
+        ? interpolateColor(normalizedDrag, [0, SWIPE_THRESHOLD], [Colors.border, Colors.success])
+        : interpolateColor(-normalizedDrag, [0, SWIPE_THRESHOLD], [Colors.border, Colors.error]);
+    return { borderColor, borderWidth: 1 };
+  });
 
-  const wrongBadgeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, -SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP),
-  }));
+  const correctBadgeStyle = useAnimatedStyle(() => {
+    const correctDrag = (isMatch ? 1 : -1) * translateX.value;
+    return { opacity: interpolate(correctDrag, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP) };
+  });
+
+  const wrongBadgeStyle = useAnimatedStyle(() => {
+    const wrongDrag = (isMatch ? -1 : 1) * translateX.value;
+    return { opacity: interpolate(wrongDrag, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP) };
+  });
 
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={cardStyle}>
-        <View style={styles.card}>
+        <Animated.View style={[styles.card, cardBorderStyle]}>
           <Text style={styles.partOfSpeech}>{partOfSpeech.toUpperCase()}</Text>
           <Text style={styles.word}>{word.toUpperCase()}</Text>
           <View style={styles.divider} />
@@ -103,7 +113,7 @@ export default function SwipeCard({ word, partOfSpeech, definition, onSwipe }: S
           <Animated.View style={[styles.badge, styles.wrongBadge, wrongBadgeStyle]}>
             <Badge variant="wrong" size="large" />
           </Animated.View>
-        </View>
+        </Animated.View>
       </Animated.View>
     </GestureDetector>
   );

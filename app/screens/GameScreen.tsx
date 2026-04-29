@@ -1,13 +1,23 @@
 import { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import ProgressBar from '../../components/ProgressBar';
 import TimerBar from '../../components/TimerBar';
-import SwipeCard from '../../components/SwipeCard';
-import SwipeHint from '../../components/SwipeHint';
+import SwipeCard, { SWIPE_THRESHOLD } from '../../components/SwipeCard';
 import { useGame } from '../../src/hooks/useGame';
 import {
+  BorderRadius,
   Colors,
+  Duration,
   FontFamily,
   FontSize,
   LetterSpacing,
@@ -15,15 +25,21 @@ import {
 } from '../../constants/tokens';
 
 const ROUND_SIZE = 20;
+const HINT_ACTIVE_AT = 60;
 
 export default function GameScreen() {
   const router = useRouter();
   const { currentQuestion, score, questionIndex, isComplete, answerHistory, submitAnswer } =
     useGame();
   const hasAnsweredRef = useRef(false);
+  const translateX = useSharedValue(0);
+  // 1 when correct answer is swipe-right (isMatch), -1 when correct is swipe-left
+  const correctDir = useSharedValue(currentQuestion?.isMatch ? 1 : -1);
 
   useEffect(() => {
     hasAnsweredRef.current = false;
+    translateX.value = 0;
+    if (currentQuestion) correctDir.value = currentQuestion.isMatch ? 1 : -1;
   }, [questionIndex]);
 
   useEffect(() => {
@@ -37,6 +53,26 @@ export default function GameScreen() {
       });
     }
   }, [isComplete]);
+
+  const correctGlowStyle = useAnimatedStyle(() => {
+    const drag = translateX.value * correctDir.value;
+    return { opacity: interpolate(drag, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP) };
+  });
+
+  const wrongGlowStyle = useAnimatedStyle(() => {
+    const drag = -(translateX.value * correctDir.value);
+    return { opacity: interpolate(drag, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP) };
+  });
+
+  const correctHintStyle = useAnimatedStyle(() => {
+    const drag = translateX.value * correctDir.value;
+    return { opacity: interpolate(drag, [0, HINT_ACTIVE_AT], [0.35, 1], Extrapolation.CLAMP) };
+  });
+
+  const wrongHintStyle = useAnimatedStyle(() => {
+    const drag = -(translateX.value * correctDir.value);
+    return { opacity: interpolate(drag, [0, HINT_ACTIVE_AT], [0.35, 1], Extrapolation.CLAMP) };
+  });
 
   if (!currentQuestion) return null;
 
@@ -52,29 +88,86 @@ export default function GameScreen() {
     submitAnswer(false);
   }
 
+  function handleButtonPress(direction: 'correct' | 'wrong') {
+    if (hasAnsweredRef.current) return;
+    hasAnsweredRef.current = true;
+    const targetX = direction === 'correct' ? 500 : -500;
+    translateX.value = withTiming(targetX, { duration: Duration.normal }, (finished) => {
+      'worklet';
+      if (finished) runOnJS(submitAnswer)(direction === 'correct');
+    });
+  }
+
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <View style={styles.topRow}>
-          <View style={styles.progressWrapper}>
-            <ProgressBar current={questionIndex} total={ROUND_SIZE} />
-          </View>
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreValue}>{score}</Text>
-            <Text style={styles.scoreLabel}>pts</Text>
-          </View>
+      {/* Header */}
+      <View style={styles.topRow}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+          <Feather name="chevron-left" size={16} color={Colors.textSecondary} />
+        </TouchableOpacity>
+        <View style={styles.progressWrapper}>
+          <ProgressBar current={questionIndex} total={ROUND_SIZE} />
         </View>
-        <TimerBar key={questionIndex} running duration={15000} onExpire={handleExpire} />
+        <View style={styles.scoreBox}>
+          <Text style={styles.scoreLabel}>SCORE</Text>
+          <Text style={styles.scoreValue}>{score}</Text>
+        </View>
       </View>
 
+      {/* Swipe direction hints */}
+      <View style={styles.hintsRow}>
+        <Animated.View style={[styles.hint, wrongHintStyle]}>
+          <Feather name="x" size={11} color={Colors.error} />
+          <Text style={[styles.hintText, { color: Colors.error }]}>WRONG</Text>
+        </Animated.View>
+        <Animated.View style={[styles.hint, correctHintStyle]}>
+          <Text style={[styles.hintText, { color: Colors.success }]}>CORRECT</Text>
+          <Feather name="check" size={11} color={Colors.success} />
+        </Animated.View>
+      </View>
+
+      {/* Timer */}
+      <TimerBar key={questionIndex} running duration={15000} onExpire={handleExpire} />
+
+      {/* Card area */}
       <View style={styles.cardArea}>
+        <Animated.View
+          style={[styles.glow, { backgroundColor: Colors.success }, correctGlowStyle]}
+          pointerEvents="none"
+        />
+        <Animated.View
+          style={[styles.glow, { backgroundColor: Colors.error }, wrongGlowStyle]}
+          pointerEvents="none"
+        />
         <SwipeCard
           key={questionIndex}
           word={currentQuestion.word.word}
           partOfSpeech={currentQuestion.word.partOfSpeech}
           definition={currentQuestion.displayDefinition}
+          isMatch={currentQuestion.isMatch}
+          translateX={translateX}
           onSwipe={handleSwipe}
         />
+      </View>
+
+      {/* Action buttons */}
+      <View style={styles.bottomRow}>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.wrongBtn]}
+          onPress={() => handleButtonPress('wrong')}
+          activeOpacity={0.8}
+        >
+          <Feather name="x" size={18} color={Colors.error} />
+          <Text style={[styles.actionBtnText, { color: Colors.error }]}>Wrong</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.correctBtn]}
+          onPress={() => handleButtonPress('correct')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.actionBtnText, { color: Colors.success }]}>Correct</Text>
+          <Feather name="check" size={18} color={Colors.success} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -85,38 +178,99 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.bg,
     paddingHorizontal: Spacing[5],
-    paddingTop: Spacing[16],
-    paddingBottom: Spacing[10],
-  },
-  header: {
-    gap: Spacing[4],
+    paddingTop: Spacing[14],
+    paddingBottom: Spacing[8],
   },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing[4],
+    marginBottom: Spacing[4],
+  },
+  backButton: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   progressWrapper: {
     flex: 1,
   },
   scoreBox: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: Spacing[1],
-  },
-  scoreValue: {
-    fontFamily: FontFamily.displayBold,
-    fontSize: FontSize.xl,
-    color: Colors.textPrimary,
-    letterSpacing: LetterSpacing.tight,
+    alignItems: 'flex-end',
+    paddingLeft: Spacing[4],
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.border,
   },
   scoreLabel: {
     fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    letterSpacing: LetterSpacing.wider,
+    marginBottom: 2,
+  },
+  scoreValue: {
+    fontFamily: FontFamily.displayBold,
+    fontSize: FontSize['2xl'],
+    color: Colors.textPrimary,
+    letterSpacing: LetterSpacing.tight,
+    lineHeight: FontSize['2xl'],
+  },
+  hintsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing[3],
+  },
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[1],
+  },
+  hintText: {
+    fontFamily: FontFamily.bodySemibold,
+    fontSize: FontSize.xs,
+    letterSpacing: LetterSpacing.wider,
   },
   cardArea: {
     flex: 1,
     justifyContent: 'center',
+    marginTop: Spacing[4],
+  },
+  glow: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+    marginTop: Spacing[4],
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing[2],
+    paddingVertical: Spacing[4],
+    borderRadius: BorderRadius['2xl'],
+    borderWidth: 1,
+  },
+  wrongBtn: {
+    backgroundColor: Colors.errorDim,
+    borderColor: Colors.error + '40',
+  },
+  correctBtn: {
+    backgroundColor: Colors.successDim,
+    borderColor: Colors.success + '40',
+  },
+  actionBtnText: {
+    fontFamily: FontFamily.displaySemibold,
+    fontSize: FontSize.base,
+    letterSpacing: LetterSpacing.wide,
   },
 });
