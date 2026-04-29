@@ -8,6 +8,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import ProgressBar from '../../components/ProgressBar';
@@ -26,6 +27,7 @@ import {
 
 const ROUND_SIZE = 20;
 const HINT_ACTIVE_AT = 60;
+const FEEDBACK_DURATION = 600;
 
 export default function GameScreen() {
   const router = useRouter();
@@ -35,10 +37,13 @@ export default function GameScreen() {
   const translateX = useSharedValue(0);
   // 1 when correct answer is swipe-right (isMatch), -1 when correct is swipe-left
   const correctDir = useSharedValue(currentQuestion?.isMatch ? 1 : -1);
+  // 0 = idle, 1 = correct feedback, -1 = wrong feedback
+  const feedbackValue = useSharedValue(0);
 
   useEffect(() => {
     hasAnsweredRef.current = false;
     translateX.value = 0;
+    feedbackValue.value = 0;
     if (currentQuestion) correctDir.value = currentQuestion.isMatch ? 1 : -1;
   }, [questionIndex]);
 
@@ -61,16 +66,6 @@ export default function GameScreen() {
     ],
   }));
 
-  const correctGlowStyle = useAnimatedStyle(() => {
-    const drag = translateX.value * correctDir.value;
-    return { opacity: interpolate(drag, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP) };
-  });
-
-  const wrongGlowStyle = useAnimatedStyle(() => {
-    const drag = -(translateX.value * correctDir.value);
-    return { opacity: interpolate(drag, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP) };
-  });
-
   const correctHintStyle = useAnimatedStyle(() => {
     const drag = translateX.value * correctDir.value;
     return { opacity: interpolate(drag, [0, HINT_ACTIVE_AT], [0.35, 1], Extrapolation.CLAMP) };
@@ -83,10 +78,25 @@ export default function GameScreen() {
 
   if (!currentQuestion) return null;
 
+  // Card is already snapping back to center when this is called.
+  // Show feedback badge/glow for FEEDBACK_DURATION ms, then fly card off screen.
+  function triggerFeedback(direction: 'correct' | 'wrong') {
+    feedbackValue.value = direction === 'correct' ? 1 : -1;
+    setTimeout(() => {
+      const targetX = direction === 'correct' ? 500 : -500;
+      translateX.value = withTiming(targetX, { duration: Duration.normal }, () => {
+        'worklet';
+        runOnJS(submitAnswer)(direction === 'correct');
+      });
+    }, FEEDBACK_DURATION);
+  }
+
+  // Called by SwipeCard immediately when the swipe threshold is crossed
+  // (the card has already snapped back to 0 by the time this fires).
   function handleSwipe(direction: 'correct' | 'wrong') {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
-    submitAnswer(direction === 'correct');
+    triggerFeedback(direction);
   }
 
   function handleExpire() {
@@ -98,11 +108,8 @@ export default function GameScreen() {
   function handleButtonPress(direction: 'correct' | 'wrong') {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
-    const targetX = direction === 'correct' ? 500 : -500;
-    translateX.value = withTiming(targetX, { duration: Duration.normal }, (finished) => {
-      'worklet';
-      if (finished) runOnJS(submitAnswer)(direction === 'correct');
-    });
+    translateX.value = withSpring(0);
+    triggerFeedback(direction);
   }
 
   return (
@@ -138,14 +145,6 @@ export default function GameScreen() {
 
       {/* Card area */}
       <View style={styles.cardArea}>
-        <Animated.View
-          style={[styles.glow, { backgroundColor: Colors.success }, correctGlowStyle]}
-          pointerEvents="none"
-        />
-        <Animated.View
-          style={[styles.glow, { backgroundColor: Colors.error }, wrongGlowStyle]}
-          pointerEvents="none"
-        />
         <Animated.View style={animatedCardStyle}>
           <SwipeCard
             key={questionIndex}
@@ -154,6 +153,7 @@ export default function GameScreen() {
             definition={currentQuestion.displayDefinition}
             isMatch={currentQuestion.isMatch}
             translateX={translateX}
+            feedbackValue={feedbackValue}
             onSwipe={handleSwipe}
           />
         </Animated.View>
@@ -250,9 +250,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     marginTop: Spacing[4],
-  },
-  glow: {
-    ...StyleSheet.absoluteFillObject,
   },
   bottomRow: {
     flexDirection: 'row',

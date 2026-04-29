@@ -31,10 +31,11 @@ interface SwipeCardProps {
   definition: string;
   isMatch: boolean;
   translateX: SharedValue<number>;
+  feedbackValue: SharedValue<number>;
   onSwipe?: (direction: 'correct' | 'wrong') => void;
 }
 
-export default function SwipeCard({ word, partOfSpeech, definition, isMatch, translateX, onSwipe }: SwipeCardProps) {
+export default function SwipeCard({ word, partOfSpeech, definition, isMatch, translateX, feedbackValue, onSwipe }: SwipeCardProps) {
   const translateY = useSharedValue(0);
 
   function handleSwipe(direction: 'correct' | 'wrong') {
@@ -51,11 +52,10 @@ export default function SwipeCard({ word, partOfSpeech, definition, isMatch, tra
     .onEnd((e) => {
       if (Math.abs(e.translationX) >= SWIPE_THRESHOLD) {
         const direction = e.translationX > 0 ? 'correct' : 'wrong';
-        translateX.value = withTiming(
-          e.translationX > 0 ? 500 : -500,
-          { duration: 250 },
-          () => runOnJS(handleSwipe)(direction),
-        );
+        // Snap back to center so GameScreen can show feedback before flying off
+        translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
+        translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
+        runOnJS(handleSwipe)(direction);
       } else {
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
@@ -67,7 +67,8 @@ export default function SwipeCard({ word, partOfSpeech, definition, isMatch, tra
   }));
 
   const cardBorderStyle = useAnimatedStyle(() => {
-    // normalizedDrag > 0 means user is swiping in the correct-answer direction
+    if (feedbackValue.value === 1) return { borderColor: Colors.success, borderWidth: 1 };
+    if (feedbackValue.value === -1) return { borderColor: Colors.error, borderWidth: 1 };
     const normalizedDrag = (isMatch ? 1 : -1) * translateX.value;
     const borderColor =
       normalizedDrag >= 0
@@ -77,13 +78,23 @@ export default function SwipeCard({ word, partOfSpeech, definition, isMatch, tra
   });
 
   const correctBadgeStyle = useAnimatedStyle(() => {
-    const correctDrag = (isMatch ? 1 : -1) * translateX.value;
-    return { opacity: interpolate(correctDrag, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP) };
+    const dragOpacity = interpolate(
+      (isMatch ? 1 : -1) * translateX.value,
+      [0, SWIPE_THRESHOLD],
+      [0, 1],
+      Extrapolation.CLAMP,
+    );
+    return { opacity: Math.max(dragOpacity, feedbackValue.value === 1 ? 1 : 0) };
   });
 
   const wrongBadgeStyle = useAnimatedStyle(() => {
-    const wrongDrag = (isMatch ? -1 : 1) * translateX.value;
-    return { opacity: interpolate(wrongDrag, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP) };
+    const dragOpacity = interpolate(
+      (isMatch ? -1 : 1) * translateX.value,
+      [0, SWIPE_THRESHOLD],
+      [0, 1],
+      Extrapolation.CLAMP,
+    );
+    return { opacity: Math.max(dragOpacity, feedbackValue.value === -1 ? 1 : 0) };
   });
 
   return (
