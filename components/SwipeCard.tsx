@@ -24,7 +24,6 @@ import {
 import type { PartOfSpeech } from '../src/data/words';
 
 export const SWIPE_THRESHOLD = 120;
-const ROTATION_FACTOR = 15;
 
 interface SwipeCardProps {
   word: string;
@@ -64,18 +63,7 @@ export default function SwipeCard({ word, partOfSpeech, definition, isMatch, tra
     });
 
   const cardStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      {
-        rotate: `${interpolate(
-          translateX.value,
-          [-SWIPE_THRESHOLD, SWIPE_THRESHOLD],
-          [-ROTATION_FACTOR, ROTATION_FACTOR],
-          Extrapolation.CLAMP,
-        )}deg`,
-      },
-    ],
+    transform: [{ translateY: translateY.value }],
   }));
 
   const cardBorderStyle = useAnimatedStyle(() => {

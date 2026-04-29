@@ -54,6 +54,13 @@ export default function GameScreen() {
     }
   }, [isComplete]);
 
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { rotate: `${translateX.value * 0.04}deg` },
+    ],
+  }));
+
   const correctGlowStyle = useAnimatedStyle(() => {
     const drag = translateX.value * correctDir.value;
     return { opacity: interpolate(drag, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP) };
@@ -139,15 +146,17 @@ export default function GameScreen() {
           style={[styles.glow, { backgroundColor: Colors.error }, wrongGlowStyle]}
           pointerEvents="none"
         />
-        <SwipeCard
-          key={questionIndex}
-          word={currentQuestion.word.word}
-          partOfSpeech={currentQuestion.word.partOfSpeech}
-          definition={currentQuestion.displayDefinition}
-          isMatch={currentQuestion.isMatch}
-          translateX={translateX}
-          onSwipe={handleSwipe}
-        />
+        <Animated.View style={animatedCardStyle}>
+          <SwipeCard
+            key={questionIndex}
+            word={currentQuestion.word.word}
+            partOfSpeech={currentQuestion.word.partOfSpeech}
+            definition={currentQuestion.displayDefinition}
+            isMatch={currentQuestion.isMatch}
+            translateX={translateX}
+            onSwipe={handleSwipe}
+          />
+        </Animated.View>
       </View>
 
       {/* Action buttons */}
