@@ -79,24 +79,22 @@ export default function GameScreen() {
   if (!currentQuestion) return null;
 
   // Card is already snapping back to center when this is called.
-  // Show feedback badge/glow for FEEDBACK_DURATION ms, then fly card off screen.
-  function triggerFeedback(direction: 'correct' | 'wrong') {
-    feedbackValue.value = direction === 'correct' ? 1 : -1;
+  // Show feedback badge for FEEDBACK_DURATION ms, then fly card off screen.
+  function triggerFeedback(isCorrect: boolean, flyRight: boolean) {
+    feedbackValue.value = isCorrect ? 1 : -1;
     setTimeout(() => {
-      const targetX = direction === 'correct' ? 500 : -500;
-      translateX.value = withTiming(targetX, { duration: Duration.normal }, () => {
+      translateX.value = withTiming(flyRight ? 500 : -500, { duration: Duration.normal }, () => {
         'worklet';
-        runOnJS(submitAnswer)(direction === 'correct');
+        runOnJS(submitAnswer)(isCorrect);
       });
     }, FEEDBACK_DURATION);
   }
 
-  // Called by SwipeCard immediately when the swipe threshold is crossed
-  // (the card has already snapped back to 0 by the time this fires).
-  function handleSwipe(direction: 'correct' | 'wrong') {
+  // isCorrect = whether the answer was right; swipedRight = which direction card should fly off
+  function handleSwipe(isCorrect: boolean, swipedRight: boolean) {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
-    triggerFeedback(direction);
+    triggerFeedback(isCorrect, swipedRight);
   }
 
   function handleExpire() {
@@ -108,8 +106,8 @@ export default function GameScreen() {
   function handleButtonPress(direction: 'correct' | 'wrong') {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
-    translateX.value = withSpring(0);
-    triggerFeedback(direction);
+    const isCorrect = direction === 'correct';
+    triggerFeedback(isCorrect, isCorrect);
   }
 
   return (

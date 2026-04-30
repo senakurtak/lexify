@@ -32,14 +32,14 @@ interface SwipeCardProps {
   isMatch: boolean;
   translateX: SharedValue<number>;
   feedbackValue: SharedValue<number>;
-  onSwipe?: (direction: 'correct' | 'wrong') => void;
+  onSwipe?: (isCorrect: boolean, swipedRight: boolean) => void;
 }
 
 export default function SwipeCard({ word, partOfSpeech, definition, isMatch, translateX, feedbackValue, onSwipe }: SwipeCardProps) {
   const translateY = useSharedValue(0);
 
-  function handleSwipe(direction: 'correct' | 'wrong') {
-    onSwipe?.(direction);
+  function handleSwipe(isCorrect: boolean, swipedRight: boolean) {
+    onSwipe?.(isCorrect, swipedRight);
   }
 
   const pan = Gesture.Pan()
@@ -51,11 +51,12 @@ export default function SwipeCard({ word, partOfSpeech, definition, isMatch, tra
     })
     .onEnd((e) => {
       if (Math.abs(e.translationX) >= SWIPE_THRESHOLD) {
-        const direction = e.translationX > 0 ? 'correct' : 'wrong';
-        // Snap back to center so GameScreen can show feedback before flying off
+        const swipedRight = e.translationX > 0;
+        // Right swipe = "yes it matches"; correct only when isMatch is true
+        const isCorrect = swipedRight === isMatch;
         translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
         translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
-        runOnJS(handleSwipe)(direction);
+        runOnJS(handleSwipe)(isCorrect, swipedRight);
       } else {
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
