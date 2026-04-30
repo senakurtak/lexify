@@ -107,7 +107,7 @@ export default function GameScreen() {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
     const isCorrect = (direction === 'correct') === currentQuestion!.isMatch;
-    const flyRight = direction === 'correct';
+    const flyRight = isCorrect;
     triggerFeedback(isCorrect, flyRight);
   }
 
