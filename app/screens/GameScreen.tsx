@@ -8,6 +8,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import ProgressBar from '../../components/ProgressBar';
@@ -26,6 +27,7 @@ import {
 
 const ROUND_SIZE = 20;
 const HINT_ACTIVE_AT = 60;
+const FEEDBACK_DURATION = 600;
 
 export default function GameScreen() {
   const router = useRouter();
@@ -35,10 +37,13 @@ export default function GameScreen() {
   const translateX = useSharedValue(0);
   // 1 when correct answer is swipe-right (isMatch), -1 when correct is swipe-left
   const correctDir = useSharedValue(currentQuestion?.isMatch ? 1 : -1);
+  // 0 = idle, 1 = correct feedback, -1 = wrong feedback
+  const feedbackValue = useSharedValue(0);
 
   useEffect(() => {
     hasAnsweredRef.current = false;
     translateX.value = 0;
+    feedbackValue.value = 0;
     if (currentQuestion) correctDir.value = currentQuestion.isMatch ? 1 : -1;
   }, [questionIndex]);
 
@@ -54,15 +59,12 @@ export default function GameScreen() {
     }
   }, [isComplete]);
 
-  const correctGlowStyle = useAnimatedStyle(() => {
-    const drag = translateX.value * correctDir.value;
-    return { opacity: interpolate(drag, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP) };
-  });
-
-  const wrongGlowStyle = useAnimatedStyle(() => {
-    const drag = -(translateX.value * correctDir.value);
-    return { opacity: interpolate(drag, [0, SWIPE_THRESHOLD], [0, 0.08], Extrapolation.CLAMP) };
-  });
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { rotate: `${translateX.value * 0.04}deg` },
+    ],
+  }));
 
   const correctHintStyle = useAnimatedStyle(() => {
     const drag = translateX.value * correctDir.value;
@@ -76,10 +78,23 @@ export default function GameScreen() {
 
   if (!currentQuestion) return null;
 
-  function handleSwipe(direction: 'correct' | 'wrong') {
+  // Card is already snapping back to center when this is called.
+  // Show feedback badge for FEEDBACK_DURATION ms, then fly card off screen.
+  function triggerFeedback(isCorrect: boolean, flyRight: boolean) {
+    feedbackValue.value = isCorrect ? 1 : -1;
+    setTimeout(() => {
+      translateX.value = withTiming(flyRight ? 500 : -500, { duration: Duration.normal }, () => {
+        'worklet';
+        runOnJS(submitAnswer)(isCorrect);
+      });
+    }, FEEDBACK_DURATION);
+  }
+
+  // isCorrect = whether the answer was right; swipedRight = which direction card should fly off
+  function handleSwipe(isCorrect: boolean, swipedRight: boolean) {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
-    submitAnswer(direction === 'correct');
+    triggerFeedback(isCorrect, swipedRight);
   }
 
   function handleExpire() {
@@ -91,11 +106,9 @@ export default function GameScreen() {
   function handleButtonPress(direction: 'correct' | 'wrong') {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
-    const targetX = direction === 'correct' ? 500 : -500;
-    translateX.value = withTiming(targetX, { duration: Duration.normal }, (finished) => {
-      'worklet';
-      if (finished) runOnJS(submitAnswer)(direction === 'correct');
-    });
+    const isCorrect = (direction === 'correct') === currentQuestion!.isMatch;
+    const flyRight = isCorrect;
+    triggerFeedback(isCorrect, flyRight);
   }
 
   return (
@@ -131,23 +144,18 @@ export default function GameScreen() {
 
       {/* Card area */}
       <View style={styles.cardArea}>
-        <Animated.View
-          style={[styles.glow, { backgroundColor: Colors.success }, correctGlowStyle]}
-          pointerEvents="none"
-        />
-        <Animated.View
-          style={[styles.glow, { backgroundColor: Colors.error }, wrongGlowStyle]}
-          pointerEvents="none"
-        />
-        <SwipeCard
-          key={questionIndex}
-          word={currentQuestion.word.word}
-          partOfSpeech={currentQuestion.word.partOfSpeech}
-          definition={currentQuestion.displayDefinition}
-          isMatch={currentQuestion.isMatch}
-          translateX={translateX}
-          onSwipe={handleSwipe}
-        />
+        <Animated.View style={animatedCardStyle}>
+          <SwipeCard
+            key={questionIndex}
+            word={currentQuestion.word.word}
+            partOfSpeech={currentQuestion.word.partOfSpeech}
+            definition={currentQuestion.displayDefinition}
+            isMatch={currentQuestion.isMatch}
+            translateX={translateX}
+            feedbackValue={feedbackValue}
+            onSwipe={handleSwipe}
+          />
+        </Animated.View>
       </View>
 
       {/* Action buttons */}
@@ -241,9 +249,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     marginTop: Spacing[4],
-  },
-  glow: {
-    ...StyleSheet.absoluteFillObject,
   },
   bottomRow: {
     flexDirection: 'row',
