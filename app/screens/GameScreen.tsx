@@ -106,8 +106,9 @@ export default function GameScreen() {
   function handleButtonPress(direction: 'correct' | 'wrong') {
     if (hasAnsweredRef.current) return;
     hasAnsweredRef.current = true;
-    const isCorrect = direction === 'correct';
-    triggerFeedback(isCorrect, isCorrect);
+    const isCorrect = (direction === 'correct') === currentQuestion!.isMatch;
+    const flyRight = direction === 'correct';
+    triggerFeedback(isCorrect, flyRight);
   }
 
   return (
