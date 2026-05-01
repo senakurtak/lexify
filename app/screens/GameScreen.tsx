@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import ProgressBar from '../../components/ProgressBar';
 import TimerBar from '../../components/TimerBar';
-import SwipeCard, { SWIPE_THRESHOLD } from '../../components/SwipeCard';
+import SwipeCard from '../../components/SwipeCard';
 import { useGame } from '../../src/hooks/useGame';
 import {
   BorderRadius,
@@ -74,6 +74,16 @@ export default function GameScreen() {
   const wrongHintStyle = useAnimatedStyle(() => {
     const drag = -(translateX.value * correctDir.value);
     return { opacity: interpolate(drag, [0, HINT_ACTIVE_AT], [0.35, 1], Extrapolation.CLAMP) };
+  });
+
+  const correctBadgeStyle = useAnimatedStyle(() => {
+    const dragOpacity = interpolate(translateX.value, [0, 80], [0, 1], Extrapolation.CLAMP);
+    return { opacity: Math.max(dragOpacity, feedbackValue.value === 1 ? 1 : 0) };
+  });
+
+  const wrongBadgeStyle = useAnimatedStyle(() => {
+    const dragOpacity = interpolate(translateX.value, [-80, 0], [1, 0], Extrapolation.CLAMP);
+    return { opacity: Math.max(dragOpacity, feedbackValue.value === -1 ? 1 : 0) };
   });
 
   if (!currentQuestion) return null;
@@ -153,6 +163,8 @@ export default function GameScreen() {
             isMatch={currentQuestion.isMatch}
             translateX={translateX}
             feedbackValue={feedbackValue}
+            correctBadgeStyle={correctBadgeStyle}
+            wrongBadgeStyle={wrongBadgeStyle}
             onSwipe={handleSwipe}
           />
         </Animated.View>
