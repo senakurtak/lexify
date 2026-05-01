@@ -1,16 +1,13 @@
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  Extrapolation,
-  interpolate,
   interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
-import type { SharedValue } from 'react-native-reanimated';
-import { StyleSheet, Text, View } from 'react-native';
+import type { AnimatedStyle, SharedValue } from 'react-native-reanimated';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Badge from './Badge';
 import {
   BorderRadius,
@@ -32,10 +29,12 @@ interface SwipeCardProps {
   isMatch: boolean;
   translateX: SharedValue<number>;
   feedbackValue: SharedValue<number>;
+  correctBadgeStyle: AnimatedStyle<ViewStyle>;
+  wrongBadgeStyle: AnimatedStyle<ViewStyle>;
   onSwipe?: (isCorrect: boolean, swipedRight: boolean) => void;
 }
 
-export default function SwipeCard({ word, partOfSpeech, definition, isMatch, translateX, feedbackValue, onSwipe }: SwipeCardProps) {
+export default function SwipeCard({ word, partOfSpeech, definition, isMatch, translateX, feedbackValue, correctBadgeStyle, wrongBadgeStyle, onSwipe }: SwipeCardProps) {
   const translateY = useSharedValue(0);
 
   function handleSwipe(isCorrect: boolean, swipedRight: boolean) {
@@ -76,26 +75,6 @@ export default function SwipeCard({ word, partOfSpeech, definition, isMatch, tra
         ? interpolateColor(normalizedDrag, [0, SWIPE_THRESHOLD], [Colors.border, Colors.success])
         : interpolateColor(-normalizedDrag, [0, SWIPE_THRESHOLD], [Colors.border, Colors.error]);
     return { borderColor, borderWidth: 1 };
-  });
-
-  const correctBadgeStyle = useAnimatedStyle(() => {
-    const dragOpacity = interpolate(
-      (isMatch ? 1 : -1) * translateX.value,
-      [0, SWIPE_THRESHOLD],
-      [0, 1],
-      Extrapolation.CLAMP,
-    );
-    return { opacity: Math.max(dragOpacity, feedbackValue.value === 1 ? 1 : 0) };
-  });
-
-  const wrongBadgeStyle = useAnimatedStyle(() => {
-    const dragOpacity = interpolate(
-      (isMatch ? -1 : 1) * translateX.value,
-      [0, SWIPE_THRESHOLD],
-      [0, 1],
-      Extrapolation.CLAMP,
-    );
-    return { opacity: Math.max(dragOpacity, feedbackValue.value === -1 ? 1 : 0) };
   });
 
   return (
