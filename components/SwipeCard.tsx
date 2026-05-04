@@ -5,6 +5,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import type { AnimatedStyle, SharedValue } from 'react-native-reanimated';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
@@ -20,7 +21,7 @@ import {
 } from '../constants/tokens';
 import type { PartOfSpeech } from '../src/data/words';
 
-export const SWIPE_THRESHOLD = 120;
+export const SWIPE_THRESHOLD = 80;
 
 interface SwipeCardProps {
   word: string;
@@ -51,11 +52,13 @@ export default function SwipeCard({ word, partOfSpeech, definition, isMatch, tra
     .onEnd((e) => {
       if (Math.abs(e.translationX) >= SWIPE_THRESHOLD) {
         const swipedRight = e.translationX > 0;
-        // Right swipe = "yes it matches"; correct only when isMatch is true
         const isCorrect = swipedRight === isMatch;
-        translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
+        const target = swipedRight ? 500 : -500;
+        translateX.value = withTiming(target, { duration: 250 }, () => {
+          translateX.value = 0;
+          runOnJS(handleSwipe)(isCorrect, swipedRight);
+        });
         translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
-        runOnJS(handleSwipe)(isCorrect, swipedRight);
       } else {
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
