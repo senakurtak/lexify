@@ -62,11 +62,10 @@ export function useGame() {
   const currentQuestion = isComplete ? null : questions[questionIndex];
 
   const submitAnswer = useCallback(
-    (userSaysMatch: boolean) => {
+    (answeredCorrectly: boolean) => {
       if (isComplete) return;
 
       const question = questions[questionIndex];
-      const answeredCorrectly = userSaysMatch === question.isMatch;
 
       setAnswerHistory((prev) => [
         ...prev,
